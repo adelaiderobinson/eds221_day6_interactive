@@ -1,0 +1,68 @@
+---
+title: "day6_tidyverse"
+author: "Adelaide Robinson"
+date: '2022-08-15'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE)
+
+library(tidyverse)
+library(janitor)
+library(here)
+```
+
+## 
+
+## Read in the WB data files
+
+```{r}
+wb_indicators <- read_csv(here("data", "wb_indicators.csv"), na = c("..", ""))
+#need to remove ... and formatting that makes r thinks it a string "", looks for exact string match
+# truly missing cell, should auto show up as NA
+
+wb_metadata <- read_csv(here("data", "wb_indicators_metadata.csv"))
+
+```
+
+#years are a spread out over column, multiple variables exist in single columns. So need to pivot longer and pivot wider.
+
+```{r}
+wb_indicators_longer <- wb_indicators |> pivot_longer(cols = '2001 [YR2001]': '2020 [YR2020]',
+                                                      names_to = "year",
+                                                      values_to = "indicator_value")
+                                                      
+
+```
+
+separate to clean up the year column, select to choose columns (filter changes rows)
+
+drop_na = complete row deletion, any row where series name column contains NA it will be dropped
+
+```{r}
+wb_clean <- wb_indicators_longer |> 
+  separate(col = year, into = c("year", "year_chr"), sep = " ") |> 
+  select(-year_chr, -"Country Code", -"Series Code" ) |> # exclude year, countrycode and series code 
+  mutate(year = as.numeric(year)) |> #overwrites because we used same column name
+  drop_na('Series Name') |> #any row where series name column contains NA it will be dropped
+  pivot_wider(names_from = 'Series Name', values_from = indicator_value)
+
+#give it all new names, names doesn't work with pipe
+names(wb_clean) <- c( "Country", "Year", "acess_clean_fuels_pp", "acess_electricity_pp", "co2_emissions_kit", "fossil_fuel_cons_pct", "water_stress")
+
+#example of one renaming
+wb_clean2 <- wb_clean |> rename(my_year = Year)  
+
+#make sure to look at your output each step of the way
+wb_subset <- wb_clean |> filter(Country %in% c("Algeria", "Barbados", "Bulgaria", "Chile"))
+
+unique(wb_subset$Country) #quickly check for just the countries I filtered for
+ggplot(data = wb_subset, aes(x = Year, y = co2_emissions_kit, group = Country)) + geom_line() +
+#could also group by country, by saying color = country
+  facet_wrap(~Country)
+```
+
+```{r}
+
+```
